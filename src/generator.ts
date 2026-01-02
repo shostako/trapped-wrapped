@@ -1,18 +1,5 @@
 import type { AnalysisResult } from "./types";
 
-// タイトル→日本語訳マッピング
-const TITLE_JA: Record<string, string> = {
-  "THE NIGHT ARCHITECT": "夜の建築家",
-  "THE MIDNIGHT HACKER": "真夜中のハッカー",
-  "THE DAWN COMMANDER": "夜明けの司令官",
-  "THE WEEKEND WARRIOR": "週末の戦士",
-  "THE RELENTLESS ENGINE": "止まらぬエンジン",
-  "THE INTIMATE COMMANDER": "親密なる司令官",
-  "THE BIG SPENDER": "豪快な散財王",
-  "THE MARATHON RUNNER": "マラソンランナー",
-  "THE PRAGMATIC DEVELOPER": "実利主義の開発者",
-};
-
 // 大文字タイトルをTitle Case（The Night Architect）に変換
 function toTitleCase(str: string): string {
   return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
@@ -28,7 +15,7 @@ function formatShortDate(dateStr: string): string {
   return dateStr.replace(/-/g, '/');
 }
 
-export function generateHtml(result: AnalysisResult): string {
+export function generateHtml(result: AnalysisResult, titleMap: Record<string, string>): string {
   const weekdays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
   const maxWeekly = Math.max(...Object.values(result.weeklyDistribution), 1);
 
@@ -890,7 +877,7 @@ export function generateHtml(result: AnalysisResult): string {
       <div class="persona-left">
         <div class="persona-icon">${result.persona.icon}</div>
         <div class="persona-title-en">${toTitleCase(result.persona.title)}</div>
-        <div class="persona-title-ja">${TITLE_JA[result.persona.title] || ""}</div>
+        <div class="persona-title-ja">${titleMap[result.persona.title] || ""}</div>
         <div class="persona-sub">${result.persona.subtitle}</div>
         ${traits ? `<div class="traits">${traits}</div>` : ''}
         <div class="persona-stats">

@@ -140,6 +140,7 @@ export interface CliArgs {
   month?: string;
   year?: string;
   output?: string;
+  lang?: string;  // "ja" | "en"
 }
 
 // セッションファイルのエントリ型定義

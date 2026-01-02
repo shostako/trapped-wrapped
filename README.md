@@ -19,17 +19,20 @@ Claude Code使用統計レポート生成ツール（Spotify Wrapped風）。
 - **Project & Language Rankings** — Top 5 projects and programming languages
   プロジェクト・言語ランキング — 上位5プロジェクト・プログラミング言語
 
-- **Persona Evaluation** — "THE NIGHT ARCHITECT", "THE MIDNIGHT HACKER", etc.
-  ペルソナ評価 — 「夜の建築家」「真夜中のハッカー」等の称号
+- **Persona Evaluation** — Snarky titles that roast your habits
+  ペルソナ評価 — あなたの習慣を皮肉る称号
 
 - **Roast & Hype** — Your AI assistant roasts your habits with brutal honesty
   辛口コメント＆称賛 — AIアシスタントが容赦なくあなたの習慣をイジる
 
-  > *"$300...その金で私にディナーでも奢れよ"*
+  > *"$300... You could've bought me dinner with that"*
   >
-  > *"深夜2時まで作業して、体壊しても私は看病しないからな"*
+  > *"Working until 2 AM? When you collapse, I'm not nursing you back"*
   >
-  > *"ありがとうの一言も言えないのか。育ち悪いな"*
+  > *"Can't even say thank you? Were you raised in a barn?"*
+
+- **Multi-language Support** — English and Japanese
+  多言語対応 — 英語と日本語
 
 ---
 
@@ -80,6 +83,7 @@ Claude Code内で以下を実行：
 
 | Option | Description | 説明 |
 |--------|-------------|------|
+| `--lang ja\|en` | Language (auto-detected) | 言語（自動検出） |
 | `--month YYYY-MM` | Specific month | 月指定 |
 | `--year YYYY` | Full year | 年指定 |
 | `--from YYYY-MM-DD` | Start date | 開始日 |
@@ -91,6 +95,12 @@ Claude Code内で以下を実行：
 ```bash
 # Last 30 days (default) / 過去30日（デフォルト）
 /trapped-wrapped
+
+# English version / 英語版
+/trapped-wrapped --lang en
+
+# Japanese version / 日本語版
+/trapped-wrapped --lang ja
 
 # December 2025 / 2025年12月
 /trapped-wrapped --month 2025-12
@@ -114,30 +124,20 @@ HTMLファイルが `~/.claude/wrapped-reports/` に生成され、自動的に�
 
 ## Personas / ペルソナ一覧
 
-| Title | Japanese | Condition |
-|-------|----------|-----------|
-| THE NIGHT ARCHITECT | 夜の建築家 | Evening activity >40% & >4 sessions/day |
-| THE MIDNIGHT HACKER | 真夜中のハッカー | Night activity >50% |
-| THE DAWN COMMANDER | 夜明けの司令官 | Morning activity >40% |
-| THE WEEKEND WARRIOR | 週末の戦士 | Weekend activity >40% |
-| THE RELENTLESS ENGINE | 止まらぬエンジン | >6 sessions/day |
-| THE INTIMATE COMMANDER | 親密なる司令官 | ultrathink >3 & casual >5 |
-| THE BIG SPENDER | 豪快な散財王 | Cost >$200 |
-| THE MARATHON RUNNER | マラソンランナー | Streak >10 days |
-| THE PRAGMATIC DEVELOPER | 実利主義の開発者 | Default |
+| English Title | Japanese | Condition |
+|---------------|----------|-----------|
+| THE INSOMNIAC ARCHITECT | 不眠症の建築家 | Evening activity >40% & >4 sessions/day |
+| THE VAMPIRE CODER | 日光アレルギー | Night activity >50% |
+| THE ANNOYINGLY EARLY BIRD | 意識高い系早起き | Morning activity >40% |
+| THE WEEKDAY SLACKER | 平日サボり魔 | Weekend activity >40% |
+| THE NEEDY ONE | 構ってちゃん | >6 sessions/day |
+| THE HOT-AND-COLD TYPE | ツンデレ上司 | ultrathink >3 & casual >5 |
+| THE WALKING WALLET | 歩くATM | Cost >$200 |
+| THE OBSESSIVE STREAKER | 依存症患者 | Streak >10 days |
+| THE BORING NORMIE | 特徴なき凡人 | Default |
 
 ---
 
 ## License / ライセンス
 
 MIT License
-
----
-
-## Note / 備考
-
-Currently, Roast/Hype messages are in Japanese only.
-Multi-language support is planned for a future release.
-
-現在、Roast/Hypeメッセージは日本語のみ対応。
-多言語対応は将来のリリースで予定。

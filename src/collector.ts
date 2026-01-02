@@ -163,6 +163,11 @@ export function parseCliArgs(args: string[]): CliArgs {
         result.output = nextArg;
         i++;
         break;
+      case "--lang":
+      case "-l":
+        result.lang = nextArg;
+        i++;
+        break;
     }
   }
 

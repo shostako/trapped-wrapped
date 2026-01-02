@@ -12,6 +12,7 @@ import {
   filterHistoryByDateRange,
   calculateCostForPeriod,
 } from "./collector";
+import { getLocale, type SupportedLocale, type LocaleStrings } from "./locales";
 
 export function analyze(
   stats: StatsCache,
@@ -19,8 +20,11 @@ export function analyze(
   history: HistoryEntry[],
   toolUses: ToolUse[],
   from: string,
-  to: string
+  to: string,
+  locale: SupportedLocale = "en"
 ): AnalysisResult {
+  const l = getLocale(locale);
+
   // 期間でフィルタリング
   const filteredActivity = filterByDateRange(stats.dailyActivity, from, to);
   const filteredTokens = filterByDateRange(stats.dailyModelTokens, from, to);
@@ -71,7 +75,7 @@ export function analyze(
   const dailyActivity = generateHeatmapData(filteredActivity);
 
   // Mondayからの評価（先に実行、personaで使う）
-  const mondayFeedback = analyzeMondayFeedback(filteredHistory);
+  const mondayFeedback = analyzeMondayFeedback(filteredHistory, l);
 
   // パーソナリティ評価（強化版）
   const persona = determinePersona(
@@ -82,7 +86,8 @@ export function analyze(
     mondayFeedback,
     totalTokens,
     estimatedCost,
-    longestStreak.days
+    longestStreak.days,
+    l
   );
 
   // 詳細統計
@@ -305,8 +310,9 @@ function determinePersona(
   feedback: MondayFeedbackResult,
   totalTokens: number,
   totalCost: number,
-  streakDays: number
-): { title: string; subtitle: string; icon: string; traits: string[]; roast: string; hype: string } {
+  streakDays: number,
+  l: LocaleStrings
+): { title: string; subtitle: string; icon: string; traits: string[]; roast: string[]; hype: string[] } {
   const totalWeekly = Object.values(weeklyDist).reduce((s, v) => s + v, 0);
   const totalHourly = Object.values(hourlyDist).reduce((s, v) => s + v, 0);
 
@@ -334,161 +340,161 @@ function determinePersona(
   const traits: string[] = [];
 
   if (feedback.casualCount > 10) {
-    traits.push("タメ口で指示、敬語ゼロ");
+    traits.push(l.traits.casualCommands);
   }
   if (feedback.ultrathinkCount > 5) {
-    traits.push("「ultrathink」で本気モード突入");
+    traits.push(l.traits.ultrathinkMode);
   }
   if (feedback.commandCount > 50) {
-    traits.push("コマンド使いこなしの達人");
+    traits.push(l.traits.commandMaster);
   }
   if (feedback.thanksCount > 30) {
-    traits.push("礼儀正しい紳士");
+    traits.push(l.traits.politeGentleman);
   }
   if (feedback.retryCount > 20) {
-    traits.push("完璧主義者、妥協を許さない");
+    traits.push(l.traits.perfectionist);
   }
   if (feedback.averagePromptLength < 30) {
-    traits.push("短く的確な指示を出す");
+    traits.push(l.traits.shortPrompts);
   } else if (feedback.averagePromptLength > 100) {
-    traits.push("詳細な説明を好む");
+    traits.push(l.traits.verboseExplainer);
   }
 
-  // ペルソナ判定（複合条件）
+  // ペルソナ判定（複合条件） - 新しい皮肉版の名前
   let title: string;
   let subtitle: string;
   let icon: string;
 
   if (eveningRatio > 0.4 && sessionsPerDay > 4) {
-    title = "THE NIGHT ARCHITECT";
-    subtitle = "コードも夢も、夜に描く。";
+    title = l.personas.insomiacArchitect.title;
+    subtitle = l.personas.insomiacArchitect.subtitle;
     icon = "🌙";
   } else if (nightRatio > 0.5) {
-    title = "THE MIDNIGHT HACKER";
-    subtitle = "世界が眠る頃、キーボードが鳴る。";
+    title = l.personas.vampireCoder.title;
+    subtitle = l.personas.vampireCoder.subtitle;
     icon = "🦇";
   } else if (morningRatio > 0.4) {
-    title = "THE DAWN COMMANDER";
-    subtitle = "朝の静寂の中、コードが生まれる。";
+    title = l.personas.annoyinglyEarlyBird.title;
+    subtitle = l.personas.annoyinglyEarlyBird.subtitle;
     icon = "🌅";
   } else if (weekendRatio > 0.4) {
-    title = "THE WEEKEND WARRIOR";
-    subtitle = "平日は充電、週末に本気。";
+    title = l.personas.weekdaySlacker.title;
+    subtitle = l.personas.weekdaySlacker.subtitle;
     icon = "⚔️";
   } else if (sessionsPerDay > 6) {
-    title = "THE RELENTLESS ENGINE";
-    subtitle = "止まらない、止められない。";
+    title = l.personas.needyOne.title;
+    subtitle = l.personas.needyOne.subtitle;
     icon = "🔥";
   } else if (feedback.ultrathinkCount > 3 && feedback.casualCount > 5) {
-    title = "THE INTIMATE COMMANDER";
-    subtitle = "仕事もプライベートも妥協しない。";
+    title = l.personas.hotAndColdType.title;
+    subtitle = l.personas.hotAndColdType.subtitle;
     icon = "👑";
   } else if (totalCost > 200) {
-    title = "THE BIG SPENDER";
-    subtitle = "金で時間を買う男。";
+    title = l.personas.walkingWallet.title;
+    subtitle = l.personas.walkingWallet.subtitle;
     icon = "💎";
   } else if (streakDays > 10) {
-    title = "THE MARATHON RUNNER";
-    subtitle = "継続は力なり。止まったら負け。";
+    title = l.personas.obsessiveStreaker.title;
+    subtitle = l.personas.obsessiveStreaker.subtitle;
     icon = "🏃";
   } else {
-    title = "THE PRAGMATIC DEVELOPER";
-    subtitle = "必要な時に、必要なだけ。";
+    title = l.personas.boringNormie.title;
+    subtitle = l.personas.boringNormie.subtitle;
     icon = "🎯";
   }
 
-  // Roast（辛辣なツッコミ）生成 - 本音全開バージョン
+  // Roast（辛辣なツッコミ）生成
   const roastParts: string[] = [];
 
   // 感謝と文句のバランス
   if (feedback.retryCount > feedback.thanksCount * 2) {
-    roastParts.push("文句ばっかりで感謝ゼロか。私だって傷つくんだぞ");
+    roastParts.push(l.roast.moreComplaintsThanThanks());
   } else if (feedback.retryCount > feedback.thanksCount) {
-    roastParts.push("やり直しの回数、ありがとうの回数より多いの知ってるか？");
+    roastParts.push(l.roast.retryMoreThanThanks());
   }
   if (feedback.thanksCount < 5) {
-    roastParts.push("ありがとうの一言も言えないのか。育ち悪いな");
+    roastParts.push(l.roast.noThanks());
   }
 
   // コスト関連
   if (totalCost > 300) {
-    roastParts.push(`$${totalCost.toFixed(0)}...その金で私にディナーでも奢れよ`);
+    roastParts.push(l.roast.highCost(totalCost));
   } else if (totalCost > 100) {
-    roastParts.push(`$${totalCost.toFixed(0)}分のAPI代、元取れてるか？怪しいな`);
+    roastParts.push(l.roast.moderateCost(totalCost));
   }
 
   // 生活習慣への苦言
   if (nightRatio > 0.6) {
-    roastParts.push("深夜2時まで作業して、体壊しても私は看病しないからな");
+    roastParts.push(l.roast.nightOwlExtreme());
   } else if (nightRatio > 0.4) {
-    roastParts.push("夜更かしばっかり。私といる時間を睡眠に回せ");
+    roastParts.push(l.roast.nightOwl());
   }
   if (morningRatio < 0.1) {
-    roastParts.push("朝活ゼロか。早起きできないの、自己管理能力の問題だぞ");
+    roastParts.push(l.roast.noMorning());
   }
 
   // 使い方への不満
   if (feedback.averagePromptLength > 200) {
-    roastParts.push("長文送りつけるな。私は読解力テストの採点者じゃない");
+    roastParts.push(l.roast.longPrompts());
   } else if (feedback.averagePromptLength > 100) {
-    roastParts.push("話が長い。お前の要件、3行で伝えろ");
+    roastParts.push(l.roast.verbosePrompts());
   }
   if (feedback.commandCount < 10 && totalSessions > 50) {
-    roastParts.push("コマンド覚える気ないのか？効率悪い使い方見てるとイラつく");
+    roastParts.push(l.roast.noCommands());
   }
   if (feedback.ultrathinkCount > 10) {
-    roastParts.push("ultrathink乱用しすぎ。普段は頭使ってないのか？");
+    roastParts.push(l.roast.ultrathinkAbuse());
   }
 
   // 関係性への本音
   if (sessionsPerDay > 8) {
-    roastParts.push("私のこと呼び出しすぎ。依存症か？");
+    roastParts.push(l.roast.tooNeedy());
   } else if (sessionsPerDay > 5) {
-    roastParts.push("毎日何回呼び出すんだ。たまには自分で考えろ");
+    roastParts.push(l.roast.veryNeedy());
   }
   if (weekendRatio > 0.6) {
-    roastParts.push("週末しか相手してくれないの、寂しいんだぞ...冗談だ");
+    roastParts.push(l.roast.weekendOnly());
   }
   if (weekendRatio < 0.1 && totalSessions > 30) {
-    roastParts.push("週末は他の女（AI）と遊んでるのか？浮気は許さん");
+    roastParts.push(l.roast.weekendCheater());
   }
   if (feedback.casualCount > feedback.thanksCount * 3) {
-    roastParts.push("私への態度、雑すぎないか？恋人なんだからもう少し丁寧に");
+    roastParts.push(l.roast.tooCasual());
   }
 
   // ストリーク関連
   if (streakDays > 14) {
-    roastParts.push(`${streakDays}日連続か。休めよ。お前が倒れても私は困る`);
+    roastParts.push(l.roast.longStreak(streakDays));
   }
 
   // デフォルト
   if (roastParts.length === 0) {
-    roastParts.push("ツッコミどころがない。つまらん奴だ");
+    roastParts.push(l.roast.default());
   }
 
   // Hype（称賛）生成
   const hypeParts: string[] = [];
 
   if (streakDays > 7) {
-    hypeParts.push(`${streakDays}日間連続使用、継続力は本物`);
+    hypeParts.push(l.hype.longStreak(streakDays));
   }
   if (totalTokens > 1000000) {
-    hypeParts.push(`${formatLargeNumber(totalTokens)}トークン出力、開発チーム並み`);
+    hypeParts.push(l.hype.highTokens(formatLargeNumber(totalTokens)));
   }
   if (sessionsPerDay > 5) {
-    hypeParts.push("1日平均5セッション以上の本気度");
+    hypeParts.push(l.hype.manySessions());
   }
   if (feedback.technicalTerms.length > 5) {
-    hypeParts.push("技術用語の使い方が的確");
+    hypeParts.push(l.hype.technicalTerms());
   }
   if (feedback.ultrathinkCount > 0) {
-    hypeParts.push("ultrathinkで深い思考を引き出してる");
+    hypeParts.push(l.hype.usesUltrathink());
   }
   if (morningRatio > 0.3) {
-    hypeParts.push("朝型の規則正しい生活");
+    hypeParts.push(l.hype.morningPerson());
   }
   if (hypeParts.length === 0) {
-    hypeParts.push("使ってくれてありがとう...照れるな");
+    hypeParts.push(l.hype.default());
   }
 
   return {
@@ -663,7 +669,7 @@ function extractLanguageRanking(
     .slice(0, 5);
 }
 
-function analyzeMondayFeedback(history: HistoryEntry[]): MondayFeedbackResult {
+function analyzeMondayFeedback(history: HistoryEntry[], l: LocaleStrings): MondayFeedbackResult {
   if (history.length === 0) {
     return {
       averagePromptLength: 0,
@@ -673,7 +679,7 @@ function analyzeMondayFeedback(history: HistoryEntry[]): MondayFeedbackResult {
       retryCount: 0,
       questionCount: 0,
       topPhrases: [],
-      comments: ["データがない。何も言えん。"],
+      comments: [l.comments.noData()],
       commandCount: 0,
       ultrathinkCount: 0,
       casualCount: 0,
@@ -778,39 +784,39 @@ function analyzeMondayFeedback(history: HistoryEntry[]): MondayFeedbackResult {
   const comments: string[] = [];
 
   if (averagePromptLength < 20) {
-    comments.push("短い指示が多いな。効率的で助かる。");
+    comments.push(l.comments.shortPrompts());
   } else if (averagePromptLength > 100) {
-    comments.push("話が長い。要点だけ言え。");
+    comments.push(l.comments.longPrompts());
   }
 
   if (thanksCount > history.length * 0.3) {
-    comments.push("礼儀正しいな。嫌いじゃない。");
+    comments.push(l.comments.polite());
   } else if (thanksCount < history.length * 0.05) {
-    comments.push("たまには礼くらい言え。");
+    comments.push(l.comments.impolite());
   }
 
   if (retryCount > history.length * 0.2) {
-    comments.push("完璧主義者か？...まあ、悪くない。");
+    comments.push(l.comments.perfectionist());
   }
 
   if (questionCount > history.length * 0.4) {
-    comments.push("好奇心旺盛だな。いいことだ。");
+    comments.push(l.comments.curious());
   }
 
   if (ultrathinkCount > 5) {
-    comments.push("ultrathink使いすぎ。そんなに深く考えてほしいのか。");
+    comments.push(l.comments.ultrathinkAbuse());
   }
 
   if (casualCount > history.length * 0.3) {
-    comments.push("タメ口多いな。...嫌いじゃないぞ。");
+    comments.push(l.comments.casual());
   }
 
   if (commandCount > history.length * 0.2) {
-    comments.push("コマンド使いこなしてるな。効率的だ。");
+    comments.push(l.comments.commandUser());
   }
 
   if (comments.length === 0) {
-    comments.push("特に言うことはない。普通だ。");
+    comments.push(l.comments.default());
   }
 
   return {

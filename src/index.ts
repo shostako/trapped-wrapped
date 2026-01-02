@@ -17,6 +17,7 @@ import {
 } from "./collector";
 import { analyze } from "./analyzer";
 import { generateHtml } from "./generator";
+import { detectLocale, getTitleMap } from "./locales";
 
 const execAsync = promisify(exec);
 
@@ -27,6 +28,9 @@ async function main() {
   const args = parseCliArgs(process.argv.slice(2));
   const { from, to } = parseDateRange(args);
 
+  // 言語検出
+  const locale = detectLocale(args.lang);
+  console.log(`🌐 Language: ${locale}`);
   console.log(`📅 Period: ${from} ~ ${to}`);
 
   try {
@@ -46,18 +50,19 @@ async function main() {
     console.log(`  - History: ${history.length} entries`);
     console.log(`  - Tool uses: ${toolUses.length} operations`);
 
-    // 分析
+    // 分析（ロケールを渡す）
     console.log("🔍 Analyzing...");
-    const result = analyze(stats, costs, history, toolUses, from, to);
+    const result = analyze(stats, costs, history, toolUses, from, to, locale);
 
     console.log(`  - Messages: ${result.totalMessages}`);
     console.log(`  - Sessions: ${result.totalSessions}`);
     console.log(`  - Cost: $${result.estimatedCost.toFixed(2)}`);
     console.log(`  - Persona: ${result.persona.title}`);
 
-    // HTML生成
+    // HTML生成（タイトルマップを渡す）
     console.log("🎨 Generating HTML...");
-    const html = generateHtml(result);
+    const titleMap = getTitleMap(locale);
+    const html = generateHtml(result, titleMap);
 
     // 出力先ディレクトリ
     const outputDir = join(homedir(), ".claude", "wrapped-reports");
