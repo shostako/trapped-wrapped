@@ -11,6 +11,7 @@ Claude Codeの使用統計レポートを生成する。Spotify Wrapped風の豪
 
 ## オプション
 
+- `--lang ja|en` - 言語（デフォルトは自動検出）
 - `--from YYYY-MM-DD` - 開始日
 - `--to YYYY-MM-DD` - 終了日
 - `--month YYYY-MM` - 月単位で指定（例: --month 2025-12）
@@ -31,6 +32,9 @@ Claude Codeの使用統計レポートを生成する。Spotify Wrapped風の豪
 
 # デフォルト（過去30日）
 /trapped-wrapped
+
+# 日本語を強制
+/trapped-wrapped --lang ja
 ```
 
 ## 実行コマンド
@@ -45,10 +49,9 @@ bun run ~/.claude/scripts/trapped-wrapped/src/index.ts $ARGUMENTS
 
 - 基本統計（トークン数、メッセージ数、セッション数、コスト）
 - 曜日別アクティビティ
-- アクティビティヒートマップ
 - ハイライト統計（連続使用日数、最も使ったモデル、パワーアワー等）
-- パーソナリティ評価（Your Vibe）
-- Mondayからのフィードバック
+- 皮肉たっぷりのペルソナ評価
+- Roast（辛口コメント）& Hype（称賛）
 
 ## 出力
 
