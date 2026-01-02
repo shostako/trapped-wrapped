@@ -1,0 +1,15 @@
+{
+  "name": "trapped-wrapped",
+  "version": "1.0.0",
+  "description": "Claude Code usage statistics report generator - You're trapped in the AI rabbit hole",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target node"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
