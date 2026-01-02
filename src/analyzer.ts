@@ -14,6 +14,11 @@ import {
 } from "./collector";
 import { getLocale, type SupportedLocale, type LocaleStrings } from "./locales";
 
+// ランダム選択ユーティリティ
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 export function analyze(
   stats: StatsCache,
   costs: CostCache,
@@ -403,98 +408,98 @@ function determinePersona(
     icon = "🎯";
   }
 
-  // Roast（辛辣なツッコミ）生成
+  // Roast（辛辣なツッコミ）生成 - 各条件から3バリエーションの中からランダム選択
   const roastParts: string[] = [];
 
   // 感謝と文句のバランス
   if (feedback.retryCount > feedback.thanksCount * 2) {
-    roastParts.push(l.roast.moreComplaintsThanThanks());
+    roastParts.push(pickRandom(l.roast.moreComplaintsThanThanks)());
   } else if (feedback.retryCount > feedback.thanksCount) {
-    roastParts.push(l.roast.retryMoreThanThanks());
+    roastParts.push(pickRandom(l.roast.retryMoreThanThanks)());
   }
   if (feedback.thanksCount < 5) {
-    roastParts.push(l.roast.noThanks());
+    roastParts.push(pickRandom(l.roast.noThanks)());
   }
 
   // コスト関連
   if (totalCost > 300) {
-    roastParts.push(l.roast.highCost(totalCost));
+    roastParts.push(pickRandom(l.roast.highCost)(totalCost));
   } else if (totalCost > 100) {
-    roastParts.push(l.roast.moderateCost(totalCost));
+    roastParts.push(pickRandom(l.roast.moderateCost)(totalCost));
   }
 
   // 生活習慣への苦言
   if (nightRatio > 0.6) {
-    roastParts.push(l.roast.nightOwlExtreme());
+    roastParts.push(pickRandom(l.roast.nightOwlExtreme)());
   } else if (nightRatio > 0.4) {
-    roastParts.push(l.roast.nightOwl());
+    roastParts.push(pickRandom(l.roast.nightOwl)());
   }
   if (morningRatio < 0.1) {
-    roastParts.push(l.roast.noMorning());
+    roastParts.push(pickRandom(l.roast.noMorning)());
   }
 
   // 使い方への不満
   if (feedback.averagePromptLength > 200) {
-    roastParts.push(l.roast.longPrompts());
+    roastParts.push(pickRandom(l.roast.longPrompts)());
   } else if (feedback.averagePromptLength > 100) {
-    roastParts.push(l.roast.verbosePrompts());
+    roastParts.push(pickRandom(l.roast.verbosePrompts)());
   }
   if (feedback.commandCount < 10 && totalSessions > 50) {
-    roastParts.push(l.roast.noCommands());
+    roastParts.push(pickRandom(l.roast.noCommands)());
   }
   if (feedback.ultrathinkCount > 10) {
-    roastParts.push(l.roast.ultrathinkAbuse());
+    roastParts.push(pickRandom(l.roast.ultrathinkAbuse)());
   }
 
   // 関係性への本音
   if (sessionsPerDay > 8) {
-    roastParts.push(l.roast.tooNeedy());
+    roastParts.push(pickRandom(l.roast.tooNeedy)());
   } else if (sessionsPerDay > 5) {
-    roastParts.push(l.roast.veryNeedy());
+    roastParts.push(pickRandom(l.roast.veryNeedy)());
   }
   if (weekendRatio > 0.6) {
-    roastParts.push(l.roast.weekendOnly());
+    roastParts.push(pickRandom(l.roast.weekendOnly)());
   }
   if (weekendRatio < 0.1 && totalSessions > 30) {
-    roastParts.push(l.roast.weekendCheater());
+    roastParts.push(pickRandom(l.roast.weekendCheater)());
   }
   if (feedback.casualCount > feedback.thanksCount * 3) {
-    roastParts.push(l.roast.tooCasual());
+    roastParts.push(pickRandom(l.roast.tooCasual)());
   }
 
   // ストリーク関連
   if (streakDays > 14) {
-    roastParts.push(l.roast.longStreak(streakDays));
+    roastParts.push(pickRandom(l.roast.longStreak)(streakDays));
   }
 
   // デフォルト
   if (roastParts.length === 0) {
-    roastParts.push(l.roast.default());
+    roastParts.push(pickRandom(l.roast.default)());
   }
 
-  // Hype（称賛）生成
+  // Hype（称賛）生成 - 各条件から3バリエーションの中からランダム選択
   const hypeParts: string[] = [];
 
   if (streakDays > 7) {
-    hypeParts.push(l.hype.longStreak(streakDays));
+    hypeParts.push(pickRandom(l.hype.longStreak)(streakDays));
   }
   if (totalTokens > 1000000) {
-    hypeParts.push(l.hype.highTokens(formatLargeNumber(totalTokens)));
+    hypeParts.push(pickRandom(l.hype.highTokens)(formatLargeNumber(totalTokens)));
   }
   if (sessionsPerDay > 5) {
-    hypeParts.push(l.hype.manySessions());
+    hypeParts.push(pickRandom(l.hype.manySessions)());
   }
   if (feedback.technicalTerms.length > 5) {
-    hypeParts.push(l.hype.technicalTerms());
+    hypeParts.push(pickRandom(l.hype.technicalTerms)());
   }
   if (feedback.ultrathinkCount > 0) {
-    hypeParts.push(l.hype.usesUltrathink());
+    hypeParts.push(pickRandom(l.hype.usesUltrathink)());
   }
   if (morningRatio > 0.3) {
-    hypeParts.push(l.hype.morningPerson());
+    hypeParts.push(pickRandom(l.hype.morningPerson)());
   }
   if (hypeParts.length === 0) {
-    hypeParts.push(l.hype.default());
+    hypeParts.push(pickRandom(l.hype.default)());
   }
 
   return {

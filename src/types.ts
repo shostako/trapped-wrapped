@@ -141,6 +141,11 @@ export interface CliArgs {
   year?: string;
   output?: string;
   lang?: string;  // "ja" | "en"
+  // AI生成モード用
+  analyzeOnly?: boolean;  // 分析のみ、JSON出力
+  roast?: string[];       // 外部から渡すroastコメント
+  hype?: string[];        // 外部から渡すhypeコメント
+  summary?: string;       // 外部から渡すサマリー
 }
 
 // セッションファイルのエントリ型定義

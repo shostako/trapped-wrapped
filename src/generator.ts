@@ -680,9 +680,9 @@ export function generateHtml(result: AnalysisResult, titleMap: Record<string, st
       border-radius: 12px;
       padding: var(--space-md) var(--space-lg);
       border-left: 3px solid var(--accent-brass);
-      flex: 1;
+      flex: none;
       position: relative;
-      overflow: hidden;
+      overflow: visible;
       transition: all 0.3s ease;
     }
 

@@ -18,18 +18,64 @@ import {
 import { analyze } from "./analyzer";
 import { generateHtml } from "./generator";
 import { detectLocale, getTitleMap } from "./locales";
+import type { AnalysisResult } from "./types";
 
 const execAsync = promisify(exec);
 
 async function main() {
-  console.log("🪤 Trapped Wrapped - Generating report...\n");
-
   // CLI引数をパース
   const args = parseCliArgs(process.argv.slice(2));
   const { from, to } = parseDateRange(args);
 
   // 言語検出
   const locale = detectLocale(args.lang);
+
+  // --analyze-only モード: JSON出力のみ
+  if (args.analyzeOnly) {
+    console.error("🪤 Trapped Wrapped - Analyze Only Mode\n");
+    console.error(`🌐 Language: ${locale}`);
+    console.error(`📅 Period: ${from} ~ ${to}`);
+
+    try {
+      console.error("📊 Loading data...");
+      const [stats, costs, history, sessionEntries] = await Promise.all([
+        loadStatsCache(),
+        loadCostCache(),
+        loadHistory(),
+        loadAllSessionEntries(from, to),
+      ]);
+
+      const toolUses = extractToolUses(sessionEntries);
+      console.error("🔍 Analyzing...");
+      const result = analyze(stats, costs, history, toolUses, from, to, locale);
+
+      // roast/hype/commentsを空にしてJSON出力（AI生成用）
+      const outputData = {
+        ...result,
+        locale,
+        persona: {
+          ...result.persona,
+          roast: [],  // AIに生成させる
+          hype: [],   // AIに生成させる
+        },
+        mondayFeedback: {
+          ...result.mondayFeedback,
+          comments: [],  // AIに生成させる
+        },
+      };
+
+      // 標準出力にJSON
+      console.log(JSON.stringify(outputData, null, 2));
+      console.error("\n✅ Analysis complete. Feed this to Claude for comment generation.");
+    } catch (error) {
+      console.error("❌ Error:", error);
+      process.exit(1);
+    }
+    return;
+  }
+
+  // 通常モード
+  console.log("🪤 Trapped Wrapped - Generating report...\n");
   console.log(`🌐 Language: ${locale}`);
   console.log(`📅 Period: ${from} ~ ${to}`);
 
@@ -52,7 +98,36 @@ async function main() {
 
     // 分析（ロケールを渡す）
     console.log("🔍 Analyzing...");
-    const result = analyze(stats, costs, history, toolUses, from, to, locale);
+    let result = analyze(stats, costs, history, toolUses, from, to, locale);
+
+    // 外部からコメントが渡された場合は上書き
+    if (args.roast && args.roast.length > 0) {
+      result = {
+        ...result,
+        persona: {
+          ...result.persona,
+          roast: args.roast,
+        },
+      };
+    }
+    if (args.hype && args.hype.length > 0) {
+      result = {
+        ...result,
+        persona: {
+          ...result.persona,
+          hype: args.hype,
+        },
+      };
+    }
+    if (args.summary) {
+      result = {
+        ...result,
+        mondayFeedback: {
+          ...result.mondayFeedback,
+          comments: [args.summary],
+        },
+      };
+    }
 
     console.log(`  - Messages: ${result.totalMessages}`);
     console.log(`  - Sessions: ${result.totalSessions}`);

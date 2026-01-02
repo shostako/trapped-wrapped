@@ -168,6 +168,24 @@ export function parseCliArgs(args: string[]): CliArgs {
         result.lang = nextArg;
         i++;
         break;
+      // AI生成モード用オプション
+      case "--analyze-only":
+        result.analyzeOnly = true;
+        break;
+      case "--roast":
+        if (!result.roast) result.roast = [];
+        result.roast.push(nextArg);
+        i++;
+        break;
+      case "--hype":
+        if (!result.hype) result.hype = [];
+        result.hype.push(nextArg);
+        i++;
+        break;
+      case "--summary":
+        result.summary = nextArg;
+        i++;
+        break;
     }
   }
 
