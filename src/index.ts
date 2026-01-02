@@ -14,6 +14,7 @@ import {
   extractToolUses,
   parseCliArgs,
   parseDateRange,
+  supplementDailyActivity,
 } from "./collector";
 import { analyze } from "./analyzer";
 import { generateHtml } from "./generator";
@@ -46,8 +47,12 @@ async function main() {
       ]);
 
       const toolUses = extractToolUses(sessionEntries);
+      
+      // stats-cacheに欠けている今日のデータをJSONLから補完
+      const supplementedStats = supplementDailyActivity(stats, sessionEntries, to);
+      
       console.error("🔍 Analyzing...");
-      const result = analyze(stats, costs, history, toolUses, from, to, locale);
+      const result = analyze(supplementedStats, costs, history, toolUses, from, to, locale);
 
       // roast/hype/commentsを空にしてJSON出力（AI生成用）
       const outputData = {
@@ -91,14 +96,17 @@ async function main() {
 
     // ツール使用情報を抽出
     const toolUses = extractToolUses(sessionEntries);
+    
+    // stats-cacheに欠けている今日のデータをJSONLから補完
+    const supplementedStats = supplementDailyActivity(stats, sessionEntries, to);
 
-    console.log(`  - Stats: ${stats.totalSessions} sessions`);
+    console.log(`  - Stats: ${supplementedStats.totalSessions} sessions`);
     console.log(`  - History: ${history.length} entries`);
     console.log(`  - Tool uses: ${toolUses.length} operations`);
 
     // 分析（ロケールを渡す）
     console.log("🔍 Analyzing...");
-    let result = analyze(stats, costs, history, toolUses, from, to, locale);
+    let result = analyze(supplementedStats, costs, history, toolUses, from, to, locale);
 
     // 外部からコメントが渡された場合は上書き
     if (args.roast && args.roast.length > 0) {

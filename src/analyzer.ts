@@ -263,15 +263,17 @@ function calculateStreaks(
   }
 
   // 現在のストリーク（endDateから逆算）
-  const today = new Date(endDate);
+  // activityがある日のSetを作成
+  const activityDates = new Set(sorted.map(d => d.date));
   let currentStreak = 0;
-  for (let i = sorted.length - 1; i >= 0; i--) {
-    const date = new Date(sorted[i].date);
-    const expectedDate = new Date(today);
-    expectedDate.setDate(expectedDate.getDate() - (sorted.length - 1 - i));
+  const checkDate = new Date(endDate);
 
-    if (date.toDateString() === expectedDate.toDateString()) {
+  // 今日から1日ずつ遡り、activityがある限りカウント
+  while (true) {
+    const dateStr = checkDate.toISOString().split("T")[0];
+    if (activityDates.has(dateStr)) {
       currentStreak++;
+      checkDate.setDate(checkDate.getDate() - 1);
     } else {
       break;
     }

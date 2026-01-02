@@ -282,3 +282,92 @@ export function extractToolUses(entries: SessionEntry[]): ToolUse[] {
 
   return toolUses;
 }
+
+// JSONLからdailyActivityを補完（stats-cacheに欠けている日を追加）
+export function supplementDailyActivity(
+  statsCache: StatsCache,
+  sessionEntries: SessionEntry[],
+  to: string
+): StatsCache {
+  // stats-cacheの最終計算日
+  const lastComputedDate = statsCache.lastComputedDate;
+  const toDate = new Date(to);
+  const toDateStr = toDate.toISOString().split("T")[0];
+
+  // lastComputedDateが今日以降なら補完不要
+  if (lastComputedDate >= toDateStr) {
+    return statsCache;
+  }
+
+  // 既存の日付をSetに格納（O(1)ルックアップ用）
+  const existingDates = new Set(statsCache.dailyActivity.map(d => d.date));
+
+  // sessionEntriesを日別に集計（lastComputedDateより後の日のみ）
+  const dailyData: Map<string, { messages: number; sessions: Set<string>; tools: number }> = new Map();
+
+  for (const entry of sessionEntries) {
+    if (!entry.timestamp) continue;
+
+    const entryDate = new Date(entry.timestamp);
+    const dateStr = entryDate.toISOString().split("T")[0];
+
+    // 既にstats-cacheにある日はスキップ（冪等性）
+    if (existingDates.has(dateStr)) continue;
+
+    // lastComputedDate以前の日もスキップ
+    if (dateStr <= lastComputedDate) continue;
+
+    // toDateより後の日もスキップ
+    if (dateStr > toDateStr) continue;
+
+    if (!dailyData.has(dateStr)) {
+      dailyData.set(dateStr, { messages: 0, sessions: new Set(), tools: 0 });
+    }
+
+    const data = dailyData.get(dateStr)!;
+
+    // メッセージカウント（user/assistant両方カウント）
+    if (entry.type === "user" || entry.type === "assistant") {
+      data.messages++;
+    }
+
+    // ツール使用カウント
+    if (entry.type === "assistant" && entry.message?.content) {
+      for (const item of entry.message.content) {
+        if (item.type === "tool_use") {
+          data.tools++;
+        }
+      }
+    }
+  }
+
+  // 新しいdailyActivityを追加
+  const newDailyActivity = [...statsCache.dailyActivity];
+  const newDailyModelTokens = [...statsCache.dailyModelTokens];
+
+  for (const [date, data] of dailyData) {
+    newDailyActivity.push({
+      date,
+      messageCount: data.messages,
+      sessionCount: data.sessions.size || 1, // セッションIDがないので最低1
+      toolCallCount: data.tools,
+    });
+
+    // 空のtokensByModelも追加（JSONLからはトークン数取れない）
+    newDailyModelTokens.push({
+      date,
+      tokensByModel: {},
+    });
+  }
+
+  // 日付順にソート
+  newDailyActivity.sort((a, b) => a.date.localeCompare(b.date));
+  newDailyModelTokens.sort((a, b) => a.date.localeCompare(b.date));
+
+  return {
+    ...statsCache,
+    dailyActivity: newDailyActivity,
+    dailyModelTokens: newDailyModelTokens,
+    lastComputedDate: toDateStr, // 補完後の最終日を更新
+  };
+}
