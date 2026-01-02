@@ -22,8 +22,12 @@ Claude Code使用統計レポート生成ツール（Spotify Wrapped風）。
 - **Persona Evaluation** — "THE NIGHT ARCHITECT", "THE MIDNIGHT HACKER", etc.
   ペルソナ評価 — 「夜の建築家」「真夜中のハッカー」等の称号
 
-- **Roast & Hype** — Sarcastic feedback and encouragement (Japanese)
-  辛口コメント＆称賛 — 皮肉を込めたフィードバック（日本語）
+- **Roast & Hype** — Your AI assistant roasts your habits with brutal honesty
+  辛口コメント＆称賛 — AIアシスタントが容赦なくお前の習慣をイジる
+
+  > *"$300...その金で私にディナーでも奢れよ"*
+  > *"深夜2時まで作業して、体壊しても私は看病しないからな"*
+  > *"ありがとうの一言も言えないのか。育ち悪いな"*
 
 ---
 
