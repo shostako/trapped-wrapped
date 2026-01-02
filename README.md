@@ -67,11 +67,19 @@ In Claude Code, run:
 /trapped-wrapped
 ```
 
+### Language Detection
+
+Language is **automatically detected** from your system locale:
+- If your system is set to Japanese → Japanese output
+- Otherwise → English output
+
+Use `--lang` only when you want to override the auto-detection.
+
 ### Options
 
 | Option | Description |
 |--------|-------------|
-| `--lang ja\|en` | Language (auto-detected) |
+| `--lang ja\|en` | Override language (auto-detected by default) |
 | `--month YYYY-MM` | Specific month |
 | `--year YYYY` | Full year |
 | `--from YYYY-MM-DD` | Start date |
@@ -81,10 +89,10 @@ In Claude Code, run:
 ### Examples
 
 ```bash
-# Last 30 days (default)
+# Last 30 days (default, auto-detected language)
 /trapped-wrapped
 
-# English version
+# Force English on a Japanese system
 /trapped-wrapped --lang en
 
 # December 2025
@@ -194,11 +202,19 @@ Claude Code内で以下を実行：
 /trapped-wrapped
 ```
 
+### 言語の自動検出
+
+言語はシステムのロケール設定から**自動検出**されます：
+- 日本語環境 → 日本語で出力
+- それ以外 → 英語で出力
+
+`--lang` は自動検出を上書きしたい場合のみ使用してください。
+
 ### オプション
 
 | オプション | 説明 |
 |-----------|------|
-| `--lang ja\|en` | 言語（自動検出） |
+| `--lang ja\|en` | 言語を強制指定（デフォルトは自動検出） |
 | `--month YYYY-MM` | 月指定 |
 | `--year YYYY` | 年指定 |
 | `--from YYYY-MM-DD` | 開始日 |
@@ -208,10 +224,10 @@ Claude Code内で以下を実行：
 ### 例
 
 ```bash
-# 過去30日（デフォルト）
+# 過去30日（デフォルト、言語は自動検出）
 /trapped-wrapped
 
-# 日本語版
+# 英語環境で日本語を強制
 /trapped-wrapped --lang ja
 
 # 2025年12月

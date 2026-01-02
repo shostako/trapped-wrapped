@@ -33,7 +33,7 @@ Generate Claude Code usage statistics report. Spotify Wrapped-style HTML report.
 # Default (last 30 days)
 /trapped-wrapped
 
-# Force English
+# Force English on a Japanese system
 /trapped-wrapped --lang en
 ```
 

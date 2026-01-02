@@ -33,7 +33,7 @@ Claude Codeの使用統計レポートを生成する。Spotify Wrapped風の豪
 # デフォルト（過去30日）
 /trapped-wrapped
 
-# 日本語を強制
+# 英語環境で日本語を強制
 /trapped-wrapped --lang ja
 ```
 
