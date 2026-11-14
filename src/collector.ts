@@ -7,8 +7,26 @@ const CLAUDE_DIR = join(homedir(), ".claude");
 
 export async function loadStatsCache(): Promise<StatsCache> {
   const path = join(CLAUDE_DIR, "stats-cache.json");
-  const content = await readFile(path, "utf-8");
-  return JSON.parse(content);
+  try {
+    const content = await readFile(path, "utf-8");
+    return JSON.parse(content);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+    // stats-cache.json が無い環境（新しい PC など）は空のキャッシュから始め、
+    // 日別の件数は supplementDailyActivity が JSONL から補う
+    return {
+      version: 0,
+      lastComputedDate: "1970-01-01",
+      dailyActivity: [],
+      dailyModelTokens: [],
+      modelUsage: {},
+      totalSessions: 0,
+      totalMessages: 0,
+      longestSession: { sessionId: "", duration: 0, messageCount: 0, timestamp: "" },
+      firstSessionDate: "",
+      hourCounts: {},
+    };
+  }
 }
 
 export async function loadCostCache(): Promise<CostCache> {
