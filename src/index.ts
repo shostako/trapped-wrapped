@@ -17,6 +17,7 @@ import {
   supplementDailyActivity,
 } from "./collector";
 import { analyze } from "./analyzer";
+import { useJapanTime } from "./dates";
 import { generateHtml } from "./generator";
 import { detectLocale, getTitleMap } from "./locales";
 import type { AnalysisResult } from "./types";
@@ -24,6 +25,9 @@ import type { AnalysisResult } from "./types";
 const execAsync = promisify(exec);
 
 async function main() {
+  // 日付は日本時間で切る（WSL など UTC で動く環境でも同じ結果にする）
+  useJapanTime();
+
   // CLI引数をパース
   const args = parseCliArgs(process.argv.slice(2));
   const { from, to } = parseDateRange(args);

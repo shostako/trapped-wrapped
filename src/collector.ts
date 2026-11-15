@@ -1,14 +1,33 @@
 import { readFile, readdir } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
-import type { StatsCache, CostCache, HistoryEntry, CliArgs, SessionEntry, ToolUse } from "./types";
+import { toLocalDateStr, parseLocalDate, endOfLocalDate } from "./dates";
+import type { StatsCache, CostCache, HistoryEntry, CliArgs, SessionEntry, ToolUse, TokenUsage } from "./types";
 
 const CLAUDE_DIR = join(homedir(), ".claude");
 
 export async function loadStatsCache(): Promise<StatsCache> {
   const path = join(CLAUDE_DIR, "stats-cache.json");
-  const content = await readFile(path, "utf-8");
-  return JSON.parse(content);
+  try {
+    const content = await readFile(path, "utf-8");
+    return JSON.parse(content);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+    // stats-cache.json が無い環境（新しい PC など）は空のキャッシュから始め、
+    // 日別の件数は supplementDailyActivity が JSONL から補う
+    return {
+      version: 0,
+      lastComputedDate: "1970-01-01",
+      dailyActivity: [],
+      dailyModelTokens: [],
+      modelUsage: {},
+      totalSessions: 0,
+      totalMessages: 0,
+      longestSession: { sessionId: "", duration: 0, messageCount: 0, timestamp: "" },
+      firstSessionDate: "",
+      hourCounts: {},
+    };
+  }
 }
 
 export async function loadCostCache(): Promise<CostCache> {
@@ -52,12 +71,11 @@ export function filterByDateRange<T extends { date: string }>(
   from: string,
   to: string
 ): T[] {
-  const fromDate = new Date(from);
-  const toDate = new Date(to);
-  toDate.setHours(23, 59, 59, 999); // 終了日の最後まで含める
+  const fromDate = parseLocalDate(from);
+  const toDate = endOfLocalDate(to); // 終了日の最後まで含める
 
   return data.filter((item) => {
-    const itemDate = new Date(item.date);
+    const itemDate = parseLocalDate(item.date);
     return itemDate >= fromDate && itemDate <= toDate;
   });
 }
@@ -68,10 +86,8 @@ export function filterHistoryByDateRange(
   from: string,
   to: string
 ): HistoryEntry[] {
-  const fromDate = new Date(from).getTime();
-  const toDate = new Date(to);
-  toDate.setHours(23, 59, 59, 999);
-  const toTime = toDate.getTime();
+  const fromDate = parseLocalDate(from).getTime();
+  const toTime = endOfLocalDate(to).getTime();
 
   return history.filter((entry) => {
     return entry.timestamp >= fromDate && entry.timestamp <= toTime;
@@ -84,9 +100,8 @@ export function calculateCostForPeriod(
   from: string,
   to: string
 ): number {
-  const fromDate = new Date(from);
-  const toDate = new Date(to);
-  toDate.setHours(23, 59, 59, 999);
+  const fromDate = parseLocalDate(from);
+  const toDate = endOfLocalDate(to);
 
   let total = 0;
   const sessions = costCache._sessions;
@@ -128,8 +143,8 @@ export function parseDateRange(args: CliArgs): { from: string; to: string } {
   from.setDate(from.getDate() - 30);
 
   return {
-    from: from.toISOString().split("T")[0],
-    to: to.toISOString().split("T")[0],
+    from: toLocalDateStr(from),
+    to: toLocalDateStr(to),
   };
 }
 
@@ -198,10 +213,8 @@ export async function loadAllSessionEntries(
   to: string
 ): Promise<SessionEntry[]> {
   const projectsDir = join(CLAUDE_DIR, "projects");
-  const fromTime = new Date(from).getTime();
-  const toDate = new Date(to);
-  toDate.setHours(23, 59, 59, 999);
-  const toTime = toDate.getTime();
+  const fromTime = parseLocalDate(from).getTime();
+  const toTime = endOfLocalDate(to).getTime();
 
   const entries: SessionEntry[] = [];
 
@@ -283,16 +296,85 @@ export function extractToolUses(entries: SessionEntry[]): ToolUse[] {
   return toolUses;
 }
 
-// JSONLからdailyActivityを補完（stats-cacheに欠けている日を追加）
+// API の単価（USD / 100 万トークン）。MAX プランの実際の支払いではなく、API で払った場合の目安
+// input / output / cacheRead。cache の書き込みは 5 分 TTL が input の 1.25 倍、1 時間 TTL が 2 倍
+const PRICING: Record<string, { input: number; output: number; cacheRead: number }> = {
+  "claude-fable-5-1": { input: 10, output: 50, cacheRead: 0.25 },
+  "claude-mythos-5-1": { input: 10, output: 50, cacheRead: 0.25 },
+  "claude-fable-5": { input: 10, output: 50, cacheRead: 1 },
+  "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2 },
+  "claude-opus-5": { input: 5, output: 25, cacheRead: 0.5 },
+  "claude-opus-4-8": { input: 5, output: 25, cacheRead: 0.5 },
+  "claude-opus-4-7": { input: 5, output: 25, cacheRead: 0.5 },
+  "claude-opus-4-6": { input: 5, output: 25, cacheRead: 0.5 },
+  "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.2 },
+  "claude-sonnet-5": { input: 2, output: 10, cacheRead: 0.2 },
+  "claude-sonnet-4-6": { input: 3, output: 15, cacheRead: 0.3 },
+  "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheRead: 0.01 },
+  "claude-haiku-4-5": { input: 1, output: 5, cacheRead: 0.1 },
+};
+
+// "claude-opus-5[1m]" や "claude-haiku-4-5-20251001" のような接尾辞を落としてから単価を引く
+export function normalizeModel(model: string): string {
+  return model.replace(/\[.*\]$/, "").replace(/-\d{8}$/, "");
+}
+
+export function estimateCostUSD(model: string, u: TokenUsage): number {
+  const p = PRICING[normalizeModel(model)];
+  if (!p) return 0;
+  const write = u.cache_creation_input_tokens ?? 0;
+  const write1h = u.cache_creation?.ephemeral_1h_input_tokens ?? 0;
+  const write5m = u.cache_creation ? (u.cache_creation.ephemeral_5m_input_tokens ?? 0) : write;
+  return (
+    ((u.input_tokens ?? 0) * p.input +
+      (u.output_tokens ?? 0) * p.output +
+      (u.cache_read_input_tokens ?? 0) * p.cacheRead +
+      write5m * p.input * 1.25 +
+      write1h * p.input * 2) /
+    1_000_000
+  );
+}
+
+// JSONL の usage から日別の費用を出す。stats-cache.json に費用は無いので、
+// stats-cache が覆っている日も含め、読み込んだ期間の全部を数える
+export function computeDailyCostUSD(sessionEntries: SessionEntry[]): Record<string, number> {
+  const daily: Record<string, number> = {};
+  const counted = new Set<string>();
+  for (const entry of sessionEntries) {
+    const msg = entry.message;
+    if (entry.type !== "assistant" || !entry.timestamp || !msg?.usage || !msg.model) continue;
+    const key = msg.id ?? entry.requestId;
+    if (key) {
+      if (counted.has(key)) continue;
+      counted.add(key);
+    }
+    const date = toLocalDateStr(new Date(entry.timestamp));
+    daily[date] = (daily[date] ?? 0) + estimateCostUSD(msg.model, msg.usage);
+  }
+  return daily;
+}
+
+// JSONLからdailyActivityを補完し、費用を足す
 export function supplementDailyActivity(
+  statsCache: StatsCache,
+  sessionEntries: SessionEntry[],
+  to: string
+): StatsCache {
+  return {
+    ...supplementActivityFromJsonl(statsCache, sessionEntries, to),
+    dailyCostUSD: computeDailyCostUSD(sessionEntries),
+  };
+}
+
+// stats-cacheに欠けている日を JSONL から追加
+function supplementActivityFromJsonl(
   statsCache: StatsCache,
   sessionEntries: SessionEntry[],
   to: string
 ): StatsCache {
   // stats-cacheの最終計算日
   const lastComputedDate = statsCache.lastComputedDate;
-  const toDate = new Date(to);
-  const toDateStr = toDate.toISOString().split("T")[0];
+  const toDateStr = toLocalDateStr(parseLocalDate(to));
 
   // lastComputedDateが今日以降なら補完不要
   if (lastComputedDate >= toDateStr) {
@@ -303,13 +385,23 @@ export function supplementDailyActivity(
   const existingDates = new Set(statsCache.dailyActivity.map(d => d.date));
 
   // sessionEntriesを日別に集計（lastComputedDateより後の日のみ）
-  const dailyData: Map<string, { messages: number; sessions: Set<string>; tools: number }> = new Map();
+  const dailyData: Map<string, {
+    messages: number;
+    sessions: Set<string>;
+    tools: number;
+    tokensByModel: Record<string, number>;
+  }> = new Map();
+  // 1 つの応答はコンテンツのブロックごとに別の行になり、同じ usage が繰り返される。message.id で 1 回だけ数える
+  const countedMessages = new Set<string>();
+  // stats-cache.json に時間帯の集計が無いときだけ、JSONL から数える（現地時間）
+  const fillHours = Object.keys(statsCache.hourCounts ?? {}).length === 0;
+  const hourCounts: Record<string, number> = { ...(statsCache.hourCounts ?? {}) };
 
   for (const entry of sessionEntries) {
     if (!entry.timestamp) continue;
 
     const entryDate = new Date(entry.timestamp);
-    const dateStr = entryDate.toISOString().split("T")[0];
+    const dateStr = toLocalDateStr(entryDate);
 
     // 既にstats-cacheにある日はスキップ（冪等性）
     if (existingDates.has(dateStr)) continue;
@@ -321,10 +413,29 @@ export function supplementDailyActivity(
     if (dateStr > toDateStr) continue;
 
     if (!dailyData.has(dateStr)) {
-      dailyData.set(dateStr, { messages: 0, sessions: new Set(), tools: 0 });
+      dailyData.set(dateStr, { messages: 0, sessions: new Set(), tools: 0, tokensByModel: {} });
     }
 
     const data = dailyData.get(dateStr)!;
+
+    if (entry.sessionId) data.sessions.add(entry.sessionId);
+
+    if (fillHours && entry.type === "user") {
+      const hour = String(entryDate.getHours());
+      hourCounts[hour] = (hourCounts[hour] ?? 0) + 1;
+    }
+
+    // トークン数と費用（assistant の usage）
+    const msg = entry.message;
+    if (entry.type === "assistant" && msg?.usage && msg.model && msg.model !== "<synthetic>") {
+      const key = msg.id ?? entry.requestId;
+      if (!key || !countedMessages.has(key)) {
+        if (key) countedMessages.add(key);
+        const model = normalizeModel(msg.model);
+        const tokens = (msg.usage.input_tokens ?? 0) + (msg.usage.output_tokens ?? 0);
+        data.tokensByModel[model] = (data.tokensByModel[model] ?? 0) + tokens;
+      }
+    }
 
     // メッセージカウント（user/assistant両方カウント）
     if (entry.type === "user" || entry.type === "assistant") {
@@ -349,14 +460,13 @@ export function supplementDailyActivity(
     newDailyActivity.push({
       date,
       messageCount: data.messages,
-      sessionCount: data.sessions.size || 1, // セッションIDがないので最低1
+      sessionCount: data.sessions.size || 1, // sessionId の無い古い記録でも最低1
       toolCallCount: data.tools,
     });
 
-    // 空のtokensByModelも追加（JSONLからはトークン数取れない）
     newDailyModelTokens.push({
       date,
-      tokensByModel: {},
+      tokensByModel: data.tokensByModel,
     });
   }
 
@@ -368,6 +478,7 @@ export function supplementDailyActivity(
     ...statsCache,
     dailyActivity: newDailyActivity,
     dailyModelTokens: newDailyModelTokens,
+    hourCounts,
     lastComputedDate: toDateStr, // 補完後の最終日を更新
   };
 }

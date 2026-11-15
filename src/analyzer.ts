@@ -12,6 +12,7 @@ import {
   filterHistoryByDateRange,
   calculateCostForPeriod,
 } from "./collector";
+import { toLocalDateStr, parseLocalDate } from "./dates";
 import { getLocale, type SupportedLocale, type LocaleStrings } from "./locales";
 
 // ランダム選択ユーティリティ
@@ -49,7 +50,12 @@ export function analyze(
       sum + Object.values(d.tokensByModel).reduce((s, t) => s + t, 0)
     );
   }, 0);
-  const estimatedCost = calculateCostForPeriod(costs, from, to);
+  // cost-cache.json は今は更新されていないので、そこに無ければ JSONL から換算した費用を使う
+  const cachedCost = calculateCostForPeriod(costs, from, to);
+  const jsonlCost = Object.entries(stats.dailyCostUSD ?? {})
+    .filter(([date]) => date >= from && date <= to)
+    .reduce((sum, [, c]) => sum + c, 0);
+  const estimatedCost = cachedCost > 0 ? cachedCost : Math.round(jsonlCost * 100) / 100;
 
   // 最もアクティブな日
   const mostActiveDay = filteredActivity.reduce(
@@ -151,7 +157,7 @@ function calculateWeeklyDistribution(
   };
 
   for (const day of activity) {
-    const date = new Date(day.date);
+    const date = parseLocalDate(day.date);
     const dayOfWeek = date.getDay().toString();
     distribution[dayOfWeek] += day.messageCount;
   }
@@ -218,7 +224,7 @@ function calculateStreaks(
   // 日付でソート
   const sorted = [...activity]
     .filter((d) => d.sessionCount > 0)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   if (sorted.length === 0) {
     return {
@@ -232,9 +238,9 @@ function calculateStreaks(
   let currentStreakDays = 1;
 
   for (let i = 1; i < sorted.length; i++) {
-    const prevDate = new Date(sorted[i - 1].date);
-    const currDate = new Date(sorted[i].date);
-    const diffDays = Math.floor(
+    const prevDate = parseLocalDate(sorted[i - 1].date);
+    const currDate = parseLocalDate(sorted[i].date);
+    const diffDays = Math.round(
       (currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
     );
 
@@ -266,11 +272,11 @@ function calculateStreaks(
   // activityがある日のSetを作成
   const activityDates = new Set(sorted.map(d => d.date));
   let currentStreak = 0;
-  const checkDate = new Date(endDate);
+  const checkDate = parseLocalDate(endDate);
 
   // 今日から1日ずつ遡り、activityがある限りカウント
   while (true) {
-    const dateStr = checkDate.toISOString().split("T")[0];
+    const dateStr = toLocalDateStr(checkDate);
     if (activityDates.has(dateStr)) {
       currentStreak++;
       checkDate.setDate(checkDate.getDate() - 1);

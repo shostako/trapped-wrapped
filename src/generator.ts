@@ -1,4 +1,5 @@
 import type { AnalysisResult } from "./types";
+import { toLocalDateStr } from "./dates";
 
 // 大文字タイトルをTitle Case（The Night Architect）に変換
 function toTitleCase(str: string): string {
@@ -901,7 +902,7 @@ export function generateHtml(result: AnalysisResult, titleMap: Record<string, st
       </div>
     </section>
 
-    <footer class="footer">generated ${new Date().toISOString().split("T")[0]}</footer>
+    <footer class="footer">generated ${toLocalDateStr(new Date())}</footer>
   </div>
 </body>
 </html>`;
