@@ -32,15 +32,38 @@ export async function loadStatsCache(): Promise<StatsCache> {
 
 export async function loadCostCache(): Promise<CostCache> {
   const path = join(CLAUDE_DIR, "cost-cache.json");
-  const content = await readFile(path, "utf-8");
+  const content = await readIfExists(path);
+  // cost-cache.json が無い環境では、費用は JSONL から換算する（analyzer 側）
+  if (content === null) return { _sessions: {} };
   return JSON.parse(content);
+}
+
+// ファイルが無ければ null を返す。それ以外の読み込みエラーはそのまま投げる
+async function readIfExists(path: string): Promise<string | null> {
+  try {
+    return await readFile(path, "utf-8");
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw e;
+  }
 }
 
 export async function loadHistory(): Promise<HistoryEntry[]> {
   const path = join(CLAUDE_DIR, "history.jsonl");
-  const content = await readFile(path, "utf-8");
-  const lines = content.trim().split("\n").filter(Boolean);
-  return lines.map((line) => JSON.parse(line));
+  const content = await readIfExists(path);
+  if (content === null) return [];
+  const entries: HistoryEntry[] = [];
+  for (const raw of content.split("\n")) {
+    // 書き込みの途中で落ちた行は、先頭に NUL が詰まることがある。NUL を削り、それでも読めない行は飛ばす
+    const line = raw.replace(/\0/g, "").trim();
+    if (!line) continue;
+    try {
+      entries.push(JSON.parse(line));
+    } catch {
+      // 壊れた行は無視
+    }
+  }
+  return entries;
 }
 
 export async function loadProjectSessions(
