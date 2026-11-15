@@ -39,6 +39,8 @@ export interface StatsCache {
   longestSession: LongestSession;
   firstSessionDate: string;
   hourCounts: Record<string, number>;
+  // JSONL の usage から出した日別の費用（API の単価で換算した目安）。stats-cache.json には無い
+  dailyCostUSD?: Record<string, number>;
 }
 
 // cost-cache.json の型定義
@@ -149,10 +151,26 @@ export interface CliArgs {
 }
 
 // セッションファイルのエントリ型定義
+export interface TokenUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+  cache_creation?: {
+    ephemeral_5m_input_tokens?: number;
+    ephemeral_1h_input_tokens?: number;
+  };
+}
+
 export interface SessionEntry {
   type: string;
   timestamp?: string;
+  sessionId?: string;
+  requestId?: string;
   message?: {
+    id?: string;
+    model?: string;
+    usage?: TokenUsage;
     content?: Array<{
       type: string;
       name?: string;

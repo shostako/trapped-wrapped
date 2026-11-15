@@ -49,7 +49,12 @@ export function analyze(
       sum + Object.values(d.tokensByModel).reduce((s, t) => s + t, 0)
     );
   }, 0);
-  const estimatedCost = calculateCostForPeriod(costs, from, to);
+  // cost-cache.json は今は更新されていないので、そこに無ければ JSONL から換算した費用を使う
+  const cachedCost = calculateCostForPeriod(costs, from, to);
+  const jsonlCost = Object.entries(stats.dailyCostUSD ?? {})
+    .filter(([date]) => date >= from && date <= to)
+    .reduce((sum, [, c]) => sum + c, 0);
+  const estimatedCost = cachedCost > 0 ? cachedCost : Math.round(jsonlCost * 100) / 100;
 
   // 最もアクティブな日
   const mostActiveDay = filteredActivity.reduce(
