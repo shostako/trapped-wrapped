@@ -314,9 +314,9 @@ const PRICING: Record<string, { input: number; output: number; cacheRead: number
   "claude-haiku-4-5": { input: 1, output: 5, cacheRead: 0.1 },
 };
 
-// "claude-opus-5[1m]" のような接尾辞を落としてから単価を引く
+// "claude-opus-5[1m]" や "claude-haiku-4-5-20251001" のような接尾辞を落としてから単価を引く
 export function normalizeModel(model: string): string {
-  return model.replace(/\[.*\]$/, "");
+  return model.replace(/\[.*\]$/, "").replace(/-\d{8}$/, "");
 }
 
 export function estimateCostUSD(model: string, u: TokenUsage): number {
@@ -335,8 +335,39 @@ export function estimateCostUSD(model: string, u: TokenUsage): number {
   );
 }
 
-// JSONLからdailyActivityを補完（stats-cacheに欠けている日を追加）
+// JSONL の usage から日別の費用を出す。stats-cache.json に費用は無いので、
+// stats-cache が覆っている日も含め、読み込んだ期間の全部を数える
+export function computeDailyCostUSD(sessionEntries: SessionEntry[]): Record<string, number> {
+  const daily: Record<string, number> = {};
+  const counted = new Set<string>();
+  for (const entry of sessionEntries) {
+    const msg = entry.message;
+    if (entry.type !== "assistant" || !entry.timestamp || !msg?.usage || !msg.model) continue;
+    const key = msg.id ?? entry.requestId;
+    if (key) {
+      if (counted.has(key)) continue;
+      counted.add(key);
+    }
+    const date = toLocalDateStr(new Date(entry.timestamp));
+    daily[date] = (daily[date] ?? 0) + estimateCostUSD(msg.model, msg.usage);
+  }
+  return daily;
+}
+
+// JSONLからdailyActivityを補完し、費用を足す
 export function supplementDailyActivity(
+  statsCache: StatsCache,
+  sessionEntries: SessionEntry[],
+  to: string
+): StatsCache {
+  return {
+    ...supplementActivityFromJsonl(statsCache, sessionEntries, to),
+    dailyCostUSD: computeDailyCostUSD(sessionEntries),
+  };
+}
+
+// stats-cacheに欠けている日を JSONL から追加
+function supplementActivityFromJsonl(
   statsCache: StatsCache,
   sessionEntries: SessionEntry[],
   to: string
@@ -359,7 +390,6 @@ export function supplementDailyActivity(
     sessions: Set<string>;
     tools: number;
     tokensByModel: Record<string, number>;
-    cost: number;
   }> = new Map();
   // 1 つの応答はコンテンツのブロックごとに別の行になり、同じ usage が繰り返される。message.id で 1 回だけ数える
   const countedMessages = new Set<string>();
@@ -383,7 +413,7 @@ export function supplementDailyActivity(
     if (dateStr > toDateStr) continue;
 
     if (!dailyData.has(dateStr)) {
-      dailyData.set(dateStr, { messages: 0, sessions: new Set(), tools: 0, tokensByModel: {}, cost: 0 });
+      dailyData.set(dateStr, { messages: 0, sessions: new Set(), tools: 0, tokensByModel: {} });
     }
 
     const data = dailyData.get(dateStr)!;
@@ -404,7 +434,6 @@ export function supplementDailyActivity(
         const model = normalizeModel(msg.model);
         const tokens = (msg.usage.input_tokens ?? 0) + (msg.usage.output_tokens ?? 0);
         data.tokensByModel[model] = (data.tokensByModel[model] ?? 0) + tokens;
-        data.cost += estimateCostUSD(model, msg.usage);
       }
     }
 
@@ -426,7 +455,6 @@ export function supplementDailyActivity(
   // 新しいdailyActivityを追加
   const newDailyActivity = [...statsCache.dailyActivity];
   const newDailyModelTokens = [...statsCache.dailyModelTokens];
-  const dailyCostUSD: Record<string, number> = { ...(statsCache.dailyCostUSD ?? {}) };
 
   for (const [date, data] of dailyData) {
     newDailyActivity.push({
@@ -440,7 +468,6 @@ export function supplementDailyActivity(
       date,
       tokensByModel: data.tokensByModel,
     });
-    dailyCostUSD[date] = data.cost;
   }
 
   // 日付順にソート
@@ -451,7 +478,6 @@ export function supplementDailyActivity(
     ...statsCache,
     dailyActivity: newDailyActivity,
     dailyModelTokens: newDailyModelTokens,
-    dailyCostUSD,
     hourCounts,
     lastComputedDate: toDateStr, // 補完後の最終日を更新
   };
