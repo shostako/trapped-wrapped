@@ -1,6 +1,7 @@
 import { readFile, readdir } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
+import { toLocalDateStr, parseLocalDate, endOfLocalDate } from "./dates";
 import type { StatsCache, CostCache, HistoryEntry, CliArgs, SessionEntry, ToolUse, TokenUsage } from "./types";
 
 const CLAUDE_DIR = join(homedir(), ".claude");
@@ -70,12 +71,11 @@ export function filterByDateRange<T extends { date: string }>(
   from: string,
   to: string
 ): T[] {
-  const fromDate = new Date(from);
-  const toDate = new Date(to);
-  toDate.setHours(23, 59, 59, 999); // 終了日の最後まで含める
+  const fromDate = parseLocalDate(from);
+  const toDate = endOfLocalDate(to); // 終了日の最後まで含める
 
   return data.filter((item) => {
-    const itemDate = new Date(item.date);
+    const itemDate = parseLocalDate(item.date);
     return itemDate >= fromDate && itemDate <= toDate;
   });
 }
@@ -86,10 +86,8 @@ export function filterHistoryByDateRange(
   from: string,
   to: string
 ): HistoryEntry[] {
-  const fromDate = new Date(from).getTime();
-  const toDate = new Date(to);
-  toDate.setHours(23, 59, 59, 999);
-  const toTime = toDate.getTime();
+  const fromDate = parseLocalDate(from).getTime();
+  const toTime = endOfLocalDate(to).getTime();
 
   return history.filter((entry) => {
     return entry.timestamp >= fromDate && entry.timestamp <= toTime;
@@ -102,9 +100,8 @@ export function calculateCostForPeriod(
   from: string,
   to: string
 ): number {
-  const fromDate = new Date(from);
-  const toDate = new Date(to);
-  toDate.setHours(23, 59, 59, 999);
+  const fromDate = parseLocalDate(from);
+  const toDate = endOfLocalDate(to);
 
   let total = 0;
   const sessions = costCache._sessions;
@@ -146,8 +143,8 @@ export function parseDateRange(args: CliArgs): { from: string; to: string } {
   from.setDate(from.getDate() - 30);
 
   return {
-    from: from.toISOString().split("T")[0],
-    to: to.toISOString().split("T")[0],
+    from: toLocalDateStr(from),
+    to: toLocalDateStr(to),
   };
 }
 
@@ -216,10 +213,8 @@ export async function loadAllSessionEntries(
   to: string
 ): Promise<SessionEntry[]> {
   const projectsDir = join(CLAUDE_DIR, "projects");
-  const fromTime = new Date(from).getTime();
-  const toDate = new Date(to);
-  toDate.setHours(23, 59, 59, 999);
-  const toTime = toDate.getTime();
+  const fromTime = parseLocalDate(from).getTime();
+  const toTime = endOfLocalDate(to).getTime();
 
   const entries: SessionEntry[] = [];
 
@@ -348,8 +343,7 @@ export function supplementDailyActivity(
 ): StatsCache {
   // stats-cacheの最終計算日
   const lastComputedDate = statsCache.lastComputedDate;
-  const toDate = new Date(to);
-  const toDateStr = toDate.toISOString().split("T")[0];
+  const toDateStr = toLocalDateStr(parseLocalDate(to));
 
   // lastComputedDateが今日以降なら補完不要
   if (lastComputedDate >= toDateStr) {
@@ -377,7 +371,7 @@ export function supplementDailyActivity(
     if (!entry.timestamp) continue;
 
     const entryDate = new Date(entry.timestamp);
-    const dateStr = entryDate.toISOString().split("T")[0];
+    const dateStr = toLocalDateStr(entryDate);
 
     // 既にstats-cacheにある日はスキップ（冪等性）
     if (existingDates.has(dateStr)) continue;
